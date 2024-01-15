@@ -42,6 +42,8 @@ func main() {
 			log.Fatal("invalid number of arguments")
 		}
 		mintOperation(instance, input[1], input[2])
+	case "help":
+		inputHelper()
 	default:
 		log.Println("invalid option passed")
 		inputHelper()
