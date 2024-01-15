@@ -10,13 +10,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 const (
-	rpcURL             = "https://goerli.drpc.org/"
+	rpcURL             = "https://rpc.ankr.com/eth_goerli"
 	contractHexAddress = "0x3D216932E996c025E1d417c0396b1105a68963c6"
 )
+
+// for purpose of testing the private key is here,
+// in real code the private key would never be in clear text and never in the codebase, it would come from env variable or some secure service
+var privateKey = "4718c7bbdde6c15114ff5e2ee1e9b2f25eaf8f1209c88a9632caec2aa5074819"
 
 func main() {
 
@@ -61,7 +66,7 @@ func connectToGoerli() *token.Token {
 }
 
 func getTokenOwner(instance *token.Token, tokenID string) {
-	address, err := instance.OwnerOf(&bind.CallOpts{}, getBigIntFromHex(tokenID))
+	address, err := instance.OwnerOf(&bind.CallOpts{}, getBigIntFromDecString(tokenID))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,14 +75,26 @@ func getTokenOwner(instance *token.Token, tokenID string) {
 }
 
 func mintOperation(instance *token.Token, toURI, tokenURI string) {
-	toAddress := common.HexToAddress(toURI)
-	_, err := instance.Mint(&bind.TransactOpts{}, toAddress, tokenURI)
-
+	// Load the private key
+	pvtKey, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
-		log.Fatal("Oops! There was a problem ", err)
+		log.Fatal(err)
 	}
 
-	fmt.Println("Token successfully minted")
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(5))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	toAddress := common.HexToAddress(toURI)
+
+	tx, err := instance.Mint(transactOpts, toAddress, tokenURI)
+	if err != nil {
+		log.Fatal("error trying to mint ", err)
+	}
+
+	fmt.Println("Token successfully minted. Transaction HASH: ", tx.Hash())
+
 }
 
 func inputHelper() {
@@ -87,9 +104,9 @@ func inputHelper() {
 	fmt.Println("   ./linumwallet mint <to address> <token ID>")
 }
 
-func getBigIntFromHex(original string) *big.Int {
+func getBigIntFromDecString(original string) *big.Int {
 	id := new(big.Int)
-	id, ok := id.SetString(original, 16) // TODO check if its base 16 the ID
+	id, ok := id.SetString(original, 10)
 	if !ok {
 		log.Fatal("invalid token ID")
 	}
